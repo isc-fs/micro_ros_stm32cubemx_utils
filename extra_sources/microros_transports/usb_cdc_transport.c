@@ -25,8 +25,8 @@ static int8_t CDC_Receive_HS(uint8_t* Buf, uint32_t *Len);
 static uint8_t line_coding[7] = {0x00, 0xC2, 0x01, 0x00, 0x00, 0x00, 0x08};
 
 // --- micro-ROS Transports ---
-#define USB_BUFFER_SIZE 2048
-#define WRITE_TIMEOUT_MS 100U
+#define USB_BUFFER_SIZE 4096
+#define WRITE_TIMEOUT_MS 10U
 
 volatile uint8_t storage_buffer[USB_BUFFER_SIZE] = {0};
 volatile size_t it_head = 0;
