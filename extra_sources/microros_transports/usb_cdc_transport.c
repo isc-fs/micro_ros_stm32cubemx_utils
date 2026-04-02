@@ -127,7 +127,7 @@ size_t cubemx_transport_write(struct uxrCustomTransport* transport, const uint8_
     int64_t start = uxr_millis();
     while(!g_write_complete && (uxr_millis() -  start) < WRITE_TIMEOUT_MS)
     {
-    	vTaskDelay( 1 / portTICK_PERIOD_MS);
+    	taskYIELD();
     }
 
     size_t writed = g_write_complete ? len : 0;
@@ -154,7 +154,7 @@ size_t cubemx_transport_read(struct uxrCustomTransport* transport, uint8_t* buf,
             break;
         }
 
-       vTaskDelay( 1 / portTICK_PERIOD_MS );
+       taskYIELD();
     } while ((uxr_millis() -  start) < timeout);
 
     return readed;
