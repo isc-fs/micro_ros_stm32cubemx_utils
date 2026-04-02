@@ -26,8 +26,8 @@ task.h is included from an application file. */
 /* Assumes 8bit bytes! */
 #define heapBITS_PER_BYTE		( ( size_t ) 8 )
 
-/* Allocate the memory for the heap. */
-static uint8_t ucHeap[ configTOTAL_HEAP_SIZE ];
+/* Allocate the memory for the heap - placed in RAM_D1 (AXI SRAM) to free DTCMRAM */
+static uint8_t ucHeap[ configTOTAL_HEAP_SIZE ] __attribute__((section(".ram_d1_bss")));
 
 /* Define the linked list structure.  This is used to link free blocks in order
 of their memory address. */
