@@ -1,5 +1,6 @@
 #include <unistd.h>
 #include <time.h>
+#include <sys/time.h>
 #include "cmsis_os.h"
 
 #define MICROSECONDS_PER_SECOND    ( 1000000LL )                                   /**< Microseconds per second. */
@@ -53,5 +54,38 @@ int clock_gettime( int clock_id,
     /* Convert ullTickCount to timespec. */
     UTILS_NanosecondsToTimespec( ( int64_t ) ullTickCount * NANOSECONDS_PER_TICK, tp );
 
+    return 0;
+}
+
+int usleep( useconds_t useconds )
+{
+    /* Convert microseconds to milliseconds (rounding up). */
+    uint32_t ms = ( useconds + 999 ) / 1000;
+    osDelay( ms );
+    return 0;
+}
+
+int _gettimeofday( struct timeval * tv, void * tz )
+{
+    struct timespec ts;
+    
+    /* Ignore timezone parameter. */
+    ( void ) tz;
+    
+    if( tv == NULL )
+    {
+        return -1;
+    }
+    
+    /* Get time using clock_gettime. */
+    if( clock_gettime( 0, &ts ) != 0 )
+    {
+        return -1;
+    }
+    
+    /* Convert timespec to timeval. */
+    tv->tv_sec = ts.tv_sec;
+    tv->tv_usec = ts.tv_nsec / 1000;  /* nanoseconds to microseconds */
+    
     return 0;
 }
