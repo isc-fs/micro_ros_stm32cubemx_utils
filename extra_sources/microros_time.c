@@ -27,6 +27,18 @@ void UTILS_NanosecondsToTimespec( int64_t llSource,
     }
 }
 
+int usleep( useconds_t usec )
+{
+    if( usec == 0U )
+    {
+        return 0;
+    }
+
+    osDelay( ( usec + 999U ) / 1000U );
+
+    return 0;
+}
+
 int clock_gettime( int clock_id,
                    struct timespec * tp )
 {
@@ -57,6 +69,7 @@ int clock_gettime( int clock_id,
     return 0;
 }
 
+<<<<<<< HEAD
 int usleep( useconds_t useconds )
 {
     /* Convert microseconds to milliseconds (rounding up). */
@@ -67,25 +80,27 @@ int usleep( useconds_t useconds )
 
 int _gettimeofday( struct timeval * tv, void * tz )
 {
-    struct timespec ts;
-    
-    /* Ignore timezone parameter. */
-    ( void ) tz;
-    
-    if( tv == NULL )
+    int _gettimeofday( struct timeval * tv, void * tz )
     {
-        return -1;
+        struct timespec ts;
+
+        /* Ignore timezone parameter. */
+        ( void ) tz;
+
+        if( tv == NULL )
+        {
+            return -1;
+        }
+
+        /* Get time using clock_gettime. */
+        if( clock_gettime( 0, &ts ) != 0 )
+        {
+            return -1;
+        }
+
+        /* Convert timespec to timeval. */
+        tv->tv_sec = ts.tv_sec;
+        tv->tv_usec = ts.tv_nsec / 1000;  /* nanoseconds to microseconds */
+
+        return 0;
     }
-    
-    /* Get time using clock_gettime. */
-    if( clock_gettime( 0, &ts ) != 0 )
-    {
-        return -1;
-    }
-    
-    /* Convert timespec to timeval. */
-    tv->tv_sec = ts.tv_sec;
-    tv->tv_usec = ts.tv_nsec / 1000;  /* nanoseconds to microseconds */
-    
-    return 0;
-}
