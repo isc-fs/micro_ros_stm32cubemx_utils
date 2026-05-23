@@ -8,5 +8,8 @@ Makefile
 *.ld
 build
 .vscode
-libmicroros
 custombuild
+# NOTE (isc-fs fork): the upstream repo ignores libmicroros/ to keep prebuilt
+# artifacts out of source. Our fork ships them so downstream firmware repos
+# don't need Docker to rebuild from scratch. Track them explicitly.
+!libmicroros
