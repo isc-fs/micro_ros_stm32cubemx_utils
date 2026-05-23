@@ -1,14 +1,18 @@
-Core
-Drivers
-EWARM
-Middlewares
-.mxproject
-Makefile
+# Anchor STM32 demo-project ignores to the repo root so they don't
+# catch unrelated lowercase 'core' directories deep in microros_include
+# (case-insensitive on macOS / Windows filesystems would otherwise
+# silently drop uxr/client/core/* headers from the tracked tree).
+/Core
+/Drivers
+/EWARM
+/Middlewares
+/.mxproject
+/Makefile
+/build
+/.vscode
+/custombuild
 *.s
 *.ld
-build
-.vscode
-custombuild
 # NOTE (isc-fs fork): the upstream repo ignores libmicroros/ to keep prebuilt
 # artifacts out of source. Our fork ships them so downstream firmware repos
 # don't need Docker to rebuild from scratch. Track them explicitly.
