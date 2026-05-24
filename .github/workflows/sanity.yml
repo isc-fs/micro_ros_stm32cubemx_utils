@@ -1,0 +1,158 @@
+name: Sanity check
+
+# Minimal CI for the isc-fs fork of micro_ros_stm32cubemx_utils.
+#
+# Catches the two real bugs that have hit this repo (and would otherwise
+# silently propagate into the IFS08-DV-uDV firmware that consumes it):
+#
+#   1. Merge-conflict markers committed to source.  Botched cherry-picks
+#      (e.g. the original fd4979c) committed literal `<<<<<<< HEAD` /
+#      `=======` / `>>>>>>>` lines into extra_sources/microros_time.c.
+#
+#   2. Prebuilt libmicroros artifacts silently dropped from the tree.
+#      The upstream .gitignore had an unanchored `Core` pattern that, on
+#      case-insensitive filesystems (macOS, Windows), also matched the
+#      microros_include/uxr/client/core/ directory — silently dropping
+#      ~20 essential micro-XRCE-DDS headers from the tracked tree.
+#
+# Both bugs surfaced only when the firmware repo did a fresh clone and
+# tried to build.  This workflow makes them visible at PR-time instead.
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  sanity:
+    name: No conflict markers + prebuilt artifacts present
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Scan for committed merge-conflict markers
+        run: |
+          # Look for lines that begin with 7 consecutive `<`, `=` or `>`
+          # followed by whitespace (the canonical conflict-marker shape).
+          # Restricting to text-y extensions to avoid false positives in
+          # binary archives like libmicroros.a.
+          if grep -rn -E '^(<{7} |={7}$|>{7} )' \
+              --include='*.c' --include='*.h' \
+              --include='*.cpp' --include='*.hpp' \
+              --include='*.cmake' --include='*.txt' \
+              --include='*.md' --include='*.sh' \
+              --include='*.yml' --include='*.yaml' \
+              --include='Makefile' --include='Dockerfile' \
+              .; then
+            echo "::error::Conflict markers found in tracked files. Resolve the conflict and re-commit."
+            exit 1
+          fi
+          echo "✅ No conflict markers found."
+
+      - name: Verify libmicroros prebuilt artifacts are tracked
+        # This catches the .gitignore over-matching bug class: if a
+        # pattern silently drops important files from the tracked tree,
+        # downstream consumers fail at clone time.  These assertions
+        # encode the bare minimum the firmware repo needs to build.
+        run: |
+          set -e
+
+          LIBDIR=microros_static_library/libmicroros
+
+          echo "Checking libmicroros.a..."
+          test -f "$LIBDIR/libmicroros.a" || {
+            echo "::error::$LIBDIR/libmicroros.a missing — fork is supposed to ship the prebuilt static lib"
+            exit 1
+          }
+
+          echo "Checking microros_include tree..."
+          test -d "$LIBDIR/microros_include" || {
+            echo "::error::$LIBDIR/microros_include/ missing"
+            exit 1
+          }
+
+          INCLUDE_COUNT=$(find "$LIBDIR/microros_include" -type f -name '*.h' | wc -l | tr -d ' ')
+          echo "  microros_include contains $INCLUDE_COUNT .h files"
+          if [ "$INCLUDE_COUNT" -lt 1500 ]; then
+            echo "::error::Only $INCLUDE_COUNT headers tracked (expected 2000+); a .gitignore pattern may be over-matching"
+            exit 1
+          fi
+
+          echo "Checking critical headers (catches the Core / core gitignore bug)..."
+          REQUIRED_HEADERS=(
+            "rcl/rcl.h"
+            "rclc/executor.h"
+            "sensor_msgs/msg/imu.h"
+            "uxr/client/core/communication/communication.h"
+            "uxr/client/core/session/session.h"
+            "rmw_microros/rmw_microros.h"
+          )
+          for h in "${REQUIRED_HEADERS[@]}"; do
+            test -f "$LIBDIR/microros_include/$h" || {
+              echo "::error::Required header missing: $LIBDIR/microros_include/$h"
+              echo "  — likely caused by a .gitignore pattern silently dropping files."
+              echo "  — see the historical Core / core case-collision bug if reproducing."
+              exit 1
+            }
+          done
+          echo "✅ All required headers present."
+
+          echo "Checking ros2_interface custom package (firmware uses this)..."
+          test -f "$LIBDIR/microros_include/ros2_interface/srv/set_mission.h" || {
+            echo "::error::ros2_interface/srv/set_mission.h missing — libmicroros wasn't rebuilt with the ros2_interface package"
+            exit 1
+          }
+          test -f "$LIBDIR/microros_include/ros2_interface/action/start_mission.h" || {
+            echo "::error::ros2_interface/action/start_mission.h missing — libmicroros wasn't rebuilt with the ros2_interface package"
+            exit 1
+          }
+          echo "✅ ros2_interface custom package is baked in."
+
+      - name: Verify libmicroros.a is built for Cortex-M7 + FPv5
+        run: |
+          set -e
+          LIB=microros_static_library/libmicroros/libmicroros.a
+
+          # The firmware targets STM32H733XG: Cortex-M7, FPv5/FP-D16, hard-float ABI.
+          # Confirm the archive contains object files with matching ARM attributes
+          # so we don't accidentally ship an x86 or wrong-FPU build.
+
+          if ! command -v arm-none-eabi-readelf >/dev/null 2>&1; then
+            sudo apt-get update -qq
+            sudo apt-get install -y gcc-arm-none-eabi
+          fi
+
+          TMP=$(mktemp -d)
+          arm-none-eabi-ar x "$LIB" --output="$TMP" 2>/dev/null || arm-none-eabi-ar x "$LIB"
+          # ar -x doesn't always support --output on all platforms; fall back
+          # to extracting in-place then moving if needed
+          if ! ls "$TMP"/*.obj >/dev/null 2>&1; then
+            cd "$TMP"
+            arm-none-eabi-ar x "$GITHUB_WORKSPACE/$LIB"
+            cd "$GITHUB_WORKSPACE"
+          fi
+
+          FIRST_OBJ=$(ls "$TMP"/*.obj 2>/dev/null | head -1)
+          if [ -z "$FIRST_OBJ" ]; then
+            echo "::error::Could not extract any .obj from $LIB"
+            exit 1
+          fi
+
+          ATTRS=$(arm-none-eabi-readelf -A "$FIRST_OBJ")
+          echo "$ATTRS"
+
+          echo "$ATTRS" | grep -q 'Tag_CPU_arch: v7E-M' || {
+            echo "::error::libmicroros.a is not built for Cortex-M7 (v7E-M)"
+            exit 1
+          }
+          echo "$ATTRS" | grep -q 'Tag_FP_arch: FPv5' || {
+            echo "::error::libmicroros.a is not built for FPv5"
+            exit 1
+          }
+          echo "$ATTRS" | grep -q 'Tag_ABI_VFP_args: VFP registers' || {
+            echo "::error::libmicroros.a is not built for hard-float ABI"
+            exit 1
+          }
+          echo "✅ libmicroros.a targets Cortex-M7 + FPv5 + hard-float ABI."
