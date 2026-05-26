@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.8)
-project(ros2_interface)
+project(dv_msgs)
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
@@ -10,8 +10,8 @@ find_package(rosidl_default_generators REQUIRED)
 find_package(action_msgs REQUIRED)
 
 rosidl_generate_interfaces(${PROJECT_NAME}
-  "srv/SetMission.srv"
-  "action/StartMission.action"
+  "action/SetMission.action"
+  "action/RuntimeControl.action"
   DEPENDENCIES action_msgs
 )
 

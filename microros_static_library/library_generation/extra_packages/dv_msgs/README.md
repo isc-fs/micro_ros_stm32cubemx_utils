@@ -1,15 +1,16 @@
-# ros2_interface
+# dv_msgs
 
-Custom ROS2 interface package for the IFS08 uDV node, defining the
-mission-orchestration service and action shared between the autonomy
-stack and the STM32 driverless controller.
+Custom ROS 2 interface package for the IFS08 uDV node, defining the
+mission-orchestration actions shared between the autonomy stack and the
+STM32 driverless controller.
 
 ## Contents
 
-- `srv/SetMission.srv` — autonomy → uDV; pre-loads the mission ID
-- `action/StartMission.action` — autonomy → uDV; starts the mission and
-  streams `acceleration` / `steering` commands as feedback, finalizes
-  with `finished` / `emergency` flags
+- `action/SetMission.action` — autonomy → uDV; selects the mission and
+  prepares autonomy for runtime
+- `action/RuntimeControl.action` — autonomy → uDV; carries the control
+  loop during the mission and terminates with `finished`, `emergency`,
+  `cancelled`, or `error`
 
 ## Schema source of truth
 

@@ -1,12 +1,12 @@
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
-  <name>ros2_interface</name>
+  <name>dv_msgs</name>
   <version>0.1.0</version>
   <description>
-    ROS2 interface package for the IFS08 uDV node.
-    Defines the SetMission service and StartMission action used between
-    the autonomy stack and the STM32 driverless controller.
+    ROS 2 interface package for the IFS08 uDV node.
+    Defines the SetMission and RuntimeControl actions used between the
+    autonomy stack and the STM32 driverless controller.
   </description>
   <maintainer email="dv@isc-fs.org">ISC-FS DV</maintainer>
   <license>MIT</license>
@@ -14,7 +14,8 @@
   <buildtool_depend>ament_cmake</buildtool_depend>
   <buildtool_depend>rosidl_default_generators</buildtool_depend>
 
-  <depend>action_msgs</depend>
+  <build_depend>action_msgs</build_depend>
+  <build_export_depend>action_msgs</build_export_depend>
 
   <exec_depend>rosidl_default_runtime</exec_depend>
 

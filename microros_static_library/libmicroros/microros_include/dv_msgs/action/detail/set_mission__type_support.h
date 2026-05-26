@@ -1,13 +1,13 @@
 // generated from rosidl_generator_c/resource/idl__type_support.h.em
-// with input from ros2_interface:action/StartMission.idl
+// with input from dv_msgs:action/SetMission.idl
 // generated code does not contain a copyright notice
 
-#ifndef ROS2_INTERFACE__ACTION__DETAIL__START_MISSION__TYPE_SUPPORT_H_
-#define ROS2_INTERFACE__ACTION__DETAIL__START_MISSION__TYPE_SUPPORT_H_
+#ifndef DV_MSGS__ACTION__DETAIL__SET_MISSION__TYPE_SUPPORT_H_
+#define DV_MSGS__ACTION__DETAIL__SET_MISSION__TYPE_SUPPORT_H_
 
 #include "rosidl_typesupport_interface/macros.h"
 
-#include "ros2_interface/msg/rosidl_generator_c__visibility_control.h"
+#include "dv_msgs/msg/rosidl_generator_c__visibility_control.h"
 
 #ifdef __cplusplus
 extern "C"
@@ -17,145 +17,145 @@ extern "C"
 #include "rosidl_runtime_c/action_type_support_struct.h"
 
 // Forward declare the get type support functions for this type.
-ROSIDL_GENERATOR_C_PUBLIC_ros2_interface
+ROSIDL_GENERATOR_C_PUBLIC_dv_msgs
 const rosidl_action_type_support_t *
 ROSIDL_TYPESUPPORT_INTERFACE__ACTION_SYMBOL_NAME(
   rosidl_typesupport_c,
-  ros2_interface,
+  dv_msgs,
   action,
-  StartMission
+  SetMission
 )();
 
 #include "rosidl_runtime_c/message_type_support_struct.h"
 
 // Forward declare the get type support functions for this type.
-ROSIDL_GENERATOR_C_PUBLIC_ros2_interface
+ROSIDL_GENERATOR_C_PUBLIC_dv_msgs
 const rosidl_message_type_support_t *
 ROSIDL_TYPESUPPORT_INTERFACE__MESSAGE_SYMBOL_NAME(
   rosidl_typesupport_c,
-  ros2_interface,
+  dv_msgs,
   action,
-  StartMission_Goal
+  SetMission_Goal
 )();
 
 // already included above
 // #include "rosidl_runtime_c/message_type_support_struct.h"
 
 // Forward declare the get type support functions for this type.
-ROSIDL_GENERATOR_C_PUBLIC_ros2_interface
+ROSIDL_GENERATOR_C_PUBLIC_dv_msgs
 const rosidl_message_type_support_t *
 ROSIDL_TYPESUPPORT_INTERFACE__MESSAGE_SYMBOL_NAME(
   rosidl_typesupport_c,
-  ros2_interface,
+  dv_msgs,
   action,
-  StartMission_Result
+  SetMission_Result
 )();
 
 // already included above
 // #include "rosidl_runtime_c/message_type_support_struct.h"
 
 // Forward declare the get type support functions for this type.
-ROSIDL_GENERATOR_C_PUBLIC_ros2_interface
+ROSIDL_GENERATOR_C_PUBLIC_dv_msgs
 const rosidl_message_type_support_t *
 ROSIDL_TYPESUPPORT_INTERFACE__MESSAGE_SYMBOL_NAME(
   rosidl_typesupport_c,
-  ros2_interface,
+  dv_msgs,
   action,
-  StartMission_Feedback
+  SetMission_Feedback
 )();
 
 // already included above
 // #include "rosidl_runtime_c/message_type_support_struct.h"
 
 // Forward declare the get type support functions for this type.
-ROSIDL_GENERATOR_C_PUBLIC_ros2_interface
+ROSIDL_GENERATOR_C_PUBLIC_dv_msgs
 const rosidl_message_type_support_t *
 ROSIDL_TYPESUPPORT_INTERFACE__MESSAGE_SYMBOL_NAME(
   rosidl_typesupport_c,
-  ros2_interface,
+  dv_msgs,
   action,
-  StartMission_SendGoal_Request
+  SetMission_SendGoal_Request
 )();
 
 // already included above
 // #include "rosidl_runtime_c/message_type_support_struct.h"
 
 // Forward declare the get type support functions for this type.
-ROSIDL_GENERATOR_C_PUBLIC_ros2_interface
+ROSIDL_GENERATOR_C_PUBLIC_dv_msgs
 const rosidl_message_type_support_t *
 ROSIDL_TYPESUPPORT_INTERFACE__MESSAGE_SYMBOL_NAME(
   rosidl_typesupport_c,
-  ros2_interface,
+  dv_msgs,
   action,
-  StartMission_SendGoal_Response
+  SetMission_SendGoal_Response
 )();
 
 #include "rosidl_runtime_c/service_type_support_struct.h"
 
 // Forward declare the get type support functions for this type.
-ROSIDL_GENERATOR_C_PUBLIC_ros2_interface
+ROSIDL_GENERATOR_C_PUBLIC_dv_msgs
 const rosidl_service_type_support_t *
 ROSIDL_TYPESUPPORT_INTERFACE__SERVICE_SYMBOL_NAME(
   rosidl_typesupport_c,
-  ros2_interface,
+  dv_msgs,
   action,
-  StartMission_SendGoal
+  SetMission_SendGoal
 )();
 
 // already included above
 // #include "rosidl_runtime_c/message_type_support_struct.h"
 
 // Forward declare the get type support functions for this type.
-ROSIDL_GENERATOR_C_PUBLIC_ros2_interface
+ROSIDL_GENERATOR_C_PUBLIC_dv_msgs
 const rosidl_message_type_support_t *
 ROSIDL_TYPESUPPORT_INTERFACE__MESSAGE_SYMBOL_NAME(
   rosidl_typesupport_c,
-  ros2_interface,
+  dv_msgs,
   action,
-  StartMission_GetResult_Request
+  SetMission_GetResult_Request
 )();
 
 // already included above
 // #include "rosidl_runtime_c/message_type_support_struct.h"
 
 // Forward declare the get type support functions for this type.
-ROSIDL_GENERATOR_C_PUBLIC_ros2_interface
+ROSIDL_GENERATOR_C_PUBLIC_dv_msgs
 const rosidl_message_type_support_t *
 ROSIDL_TYPESUPPORT_INTERFACE__MESSAGE_SYMBOL_NAME(
   rosidl_typesupport_c,
-  ros2_interface,
+  dv_msgs,
   action,
-  StartMission_GetResult_Response
+  SetMission_GetResult_Response
 )();
 
 // already included above
 // #include "rosidl_runtime_c/service_type_support_struct.h"
 
 // Forward declare the get type support functions for this type.
-ROSIDL_GENERATOR_C_PUBLIC_ros2_interface
+ROSIDL_GENERATOR_C_PUBLIC_dv_msgs
 const rosidl_service_type_support_t *
 ROSIDL_TYPESUPPORT_INTERFACE__SERVICE_SYMBOL_NAME(
   rosidl_typesupport_c,
-  ros2_interface,
+  dv_msgs,
   action,
-  StartMission_GetResult
+  SetMission_GetResult
 )();
 
 // already included above
 // #include "rosidl_runtime_c/message_type_support_struct.h"
 
 // Forward declare the get type support functions for this type.
-ROSIDL_GENERATOR_C_PUBLIC_ros2_interface
+ROSIDL_GENERATOR_C_PUBLIC_dv_msgs
 const rosidl_message_type_support_t *
 ROSIDL_TYPESUPPORT_INTERFACE__MESSAGE_SYMBOL_NAME(
   rosidl_typesupport_c,
-  ros2_interface,
+  dv_msgs,
   action,
-  StartMission_FeedbackMessage
+  SetMission_FeedbackMessage
 )();
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif  // ROS2_INTERFACE__ACTION__DETAIL__START_MISSION__TYPE_SUPPORT_H_
+#endif  // DV_MSGS__ACTION__DETAIL__SET_MISSION__TYPE_SUPPORT_H_
