@@ -190,6 +190,7 @@ geometry_msgs/Pose2D.msg
 geometry_msgs/PoseWithCovariance.msg
 geometry_msgs/AccelWithCovarianceStamped.msg
 geometry_msgs/Point32.msg
+geometry_msgs/VelocityWithCovarianceStamped.msg
 geometry_msgs/PoseArray.msg
 geometry_msgs/PolygonInstanceStamped.msg
 geometry_msgs/Wrench.msg
