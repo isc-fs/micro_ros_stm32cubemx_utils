@@ -75,14 +75,17 @@ cp -R firmware/build/include/* $BASE_PATH/libmicroros/microros_include/
 cp -R firmware/build/libmicroros.a $BASE_PATH/libmicroros/libmicroros.a
 
 ######## Fix include paths  ########
-pushd firmware/mcu_ws > /dev/null
-    INCLUDE_ROS2_PACKAGES=$(colcon list | awk '{print $1}' | awk -v d=" " '{s=(NR==1?s:s d)$0}END{print s}')
-popd > /dev/null
-
-for var in ${INCLUDE_ROS2_PACKAGES}; do
+# De-duplicate any "<pkg>/<pkg>" include nesting the build produces. The old
+# list came from `colcon list` in mcu_ws, which omits transitively-pulled
+# packages (unique_identifier_msgs, tf2_msgs, visualization_msgs, test_msgs,
+# stereo_msgs, trajectory_msgs, tracetools, ...) — those stayed doubled, so
+# firmware includes like "unique_identifier_msgs/msg/detail/uuid__struct.h"
+# failed to resolve. Iterate the actual include dirs instead so EVERY doubled
+# package is flattened, regardless of whether colcon lists it.
+for var in $(ls "$BASE_PATH/libmicroros/microros_include"); do
     if [ -d "$BASE_PATH/libmicroros/microros_include/${var}/${var}" ]; then
-        rsync -r $BASE_PATH/libmicroros/microros_include/${var}/${var}/* $BASE_PATH/libmicroros/microros_include/${var}
-        rm -rf $BASE_PATH/libmicroros/microros_include/${var}/${var}
+        rsync -r "$BASE_PATH/libmicroros/microros_include/${var}/${var}"/* "$BASE_PATH/libmicroros/microros_include/${var}"
+        rm -rf "$BASE_PATH/libmicroros/microros_include/${var}/${var}"
     fi
 done
 
