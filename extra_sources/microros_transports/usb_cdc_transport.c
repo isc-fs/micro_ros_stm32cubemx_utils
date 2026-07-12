@@ -84,7 +84,7 @@ static int8_t CDC_Receive_HS(uint8_t* Buf, uint32_t *Len)
         size_t second_section = *Len - first_section;
 
 		memcpy((void*) &storage_buffer[it_tail] , Buf, first_section);
-		memcpy((void*) &storage_buffer[0] , Buf, second_section);
+		memcpy((void*) &storage_buffer[0] , &Buf[first_section], second_section);
         it_tail = second_section;
 	}
     else
