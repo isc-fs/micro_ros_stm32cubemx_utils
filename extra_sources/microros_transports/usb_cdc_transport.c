@@ -52,7 +52,11 @@ volatile uint32_t g_rx_overflow_count = 0;
 // copy), so the in-flight region [tx_tail, tx_tail+tx_inflight) must stay stable
 // until the transfer completes — the SPSC invariant (producer never overwrites
 // unread bytes) guarantees exactly that.
-static uint8_t           tx_ring[USB_TX_RING_SIZE];
+// In RAM_D1 (not the 128 KB DTCM, which is full of stack/heap) — the linker's
+// .ram_d1_bss "large buffers" section, zeroed by main.c at boot. OTG DMA is
+// disabled so the core (not a DMA engine) copies this into the USB FIFO, so
+// AXI-SRAM placement is fine (no cache/DMA coherency concern; D-cache is off).
+static uint8_t tx_ring[USB_TX_RING_SIZE] __attribute__((section(".ram_d1_bss")));
 static volatile uint16_t tx_head = 0;      // producer (task) write index
 static volatile uint16_t tx_tail = 0;      // consumer (ISR) read index
 static volatile uint16_t tx_inflight = 0;  // bytes handed to the live transfer; 0 = TX idle
