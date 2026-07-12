@@ -61,11 +61,22 @@ volatile uint32_t g_tx_drop_count = 0;
 
 bool initialized = false;
 
-// Brief all-IRQ critical section — guards the "is TX idle? start next chunk"
-// check-and-act against the USB IN-complete ISR. The region is a few register
-// writes (CDC_Transmit_HS), microseconds long.
-static inline uint32_t usb_lock(void)        { uint32_t p = __get_PRIMASK(); __disable_irq(); return p; }
-static inline void     usb_unlock(uint32_t p){ if (!p) __enable_irq(); }
+// Critical section guarding the "is TX idle? start next chunk" check-and-act
+// against the USB IN-complete ISR. Masks ONLY the USB (OTG_HS) interrupt, NOT
+// all IRQs — FDCAN-RX and SysTick keep their latency (the ACU/AMS CAN bus is
+// safety-critical, so it must not eat a few-us all-IRQ blackout ~700x/s).
+// HAL_NVIC_DisableIRQ carries the DSB/ISB so the mask takes effect before the
+// guarded region; save/restore the prior enable state for re-entrancy safety.
+static inline uint32_t usb_lock(void)
+{
+    uint32_t en = NVIC_GetEnableIRQ(OTG_HS_IRQn);
+    HAL_NVIC_DisableIRQ(OTG_HS_IRQn);
+    return en;
+}
+static inline void usb_unlock(uint32_t en)
+{
+    if (en) HAL_NVIC_EnableIRQ(OTG_HS_IRQn);
+}
 
 // Start the next TX chunk if the link is idle and data is queued. Callable from
 // the ISR directly, or from the task WITH usb_lock() held.
