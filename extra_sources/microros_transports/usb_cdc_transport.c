@@ -34,7 +34,8 @@ static uint8_t line_coding[7] = {0x00, 0xC2, 0x01, 0x00, 0x00, 0x00, 0x08};
 volatile uint8_t storage_buffer[USB_BUFFER_SIZE] = {0};
 volatile size_t it_head = 0;   // read index (consumer: cubemx_transport_read, task)
 volatile size_t it_tail = 0;   // write index (producer: CDC_Receive_HS, USB ISR)
-// Count of RX packets DROPPED because the ring was full — surfaced on pit-diag.
+// Count of RX packets DROPPED because the ring was full. Externally linked and
+// ready to surface on a pit-diag health frame, but NOT yet wired (TODO #166).
 // Dropping (vs silently overwriting unread bytes) keeps the XRCE parser in sync;
 // a reliable stream re-delivers the lost frame, best-effort supersedes it.
 volatile uint32_t g_rx_overflow_count = 0;
@@ -158,8 +159,12 @@ static int8_t CDC_Receive_HS(uint8_t* Buf, uint32_t *Len)
         return USBD_OK;
     }
 
-    // Circular buffer
-    if ((it_tail + *Len) > USB_BUFFER_SIZE)
+    // Circular buffer. NOTE: '>=' (not '>') so an exact-fill packet
+    // (it_tail + *Len == USB_BUFFER_SIZE) takes the wrap branch and lands
+    // it_tail back at 0 — with '>' it_tail could equal USB_BUFFER_SIZE (out of
+    // the [0, SIZE-1] index space), which then never compares equal to it_head
+    // in read() and over-reads stale bytes until the next packet re-wraps it.
+    if ((it_tail + *Len) >= USB_BUFFER_SIZE)
 	{
         size_t first_section = USB_BUFFER_SIZE - it_tail;
         size_t second_section = *Len - first_section;
@@ -193,7 +198,18 @@ bool cubemx_transport_open(struct uxrCustomTransport * transport){
     // Reset both rings on every (re)open so a reconnect starts from a clean parse
     // state — leftover mid-frame bytes from a dropped session used to desync the
     // next handshake (issue #166 reconnect wedge).
+    //
+    // BEFORE zeroing the indices, tear down any IN transfer still referencing
+    // tx_ring: with OTG DMA off the core streams the transfer incrementally from
+    // ep->xfer_buff (a live pointer into tx_ring) for its whole lifetime, and a
+    // host-stalled transfer (agent died, no re-enumeration — the fix/20 warm
+    // reconnect) never completes on its own, so it would keep referencing tx_ring
+    // while the next session overwrites tx_ring[0..]. Flush the endpoint and clear
+    // TxState so the SPSC invariant can't be violated across the reset.
     uint32_t p = usb_lock();
+    USBD_LL_FlushEP(&hUsbDeviceHS, CDC_IN_EP);
+    USBD_CDC_HandleTypeDef *hcdc = (USBD_CDC_HandleTypeDef*)hUsbDeviceHS.pClassData;
+    if (hcdc) hcdc->TxState = 0;
     it_head = it_tail = 0;
     tx_head = tx_tail = 0;
     tx_inflight = 0u;
