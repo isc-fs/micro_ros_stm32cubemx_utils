@@ -25,23 +25,77 @@ static int8_t CDC_Receive_HS(uint8_t* Buf, uint32_t *Len);
 static uint8_t line_coding[7] = {0x00, 0xC2, 0x01, 0x00, 0x00, 0x00, 0x08};
 
 // --- micro-ROS Transports ---
-#define USB_BUFFER_SIZE 4096
+// Both rings MUST be powers of two (mask-wrap). USB_BUFFER_SIZE = RX ring.
+#define USB_BUFFER_SIZE  4096u
+#define USB_TX_RING_SIZE 4096u
 #define WRITE_TIMEOUT_MS 10U
 
+// ===================== RX ring (agent -> uDV) ============================
 volatile uint8_t storage_buffer[USB_BUFFER_SIZE] = {0};
-volatile size_t it_head = 0;
-volatile size_t it_tail = 0;
-volatile bool g_write_complete = false;
+volatile size_t it_head = 0;   // read index (consumer: cubemx_transport_read, task)
+volatile size_t it_tail = 0;   // write index (producer: CDC_Receive_HS, USB ISR)
+// Count of RX packets DROPPED because the ring was full — surfaced on pit-diag.
+// Dropping (vs silently overwriting unread bytes) keeps the XRCE parser in sync;
+// a reliable stream re-delivers the lost frame, best-effort supersedes it.
+volatile uint32_t g_rx_overflow_count = 0;
+
+// ===================== TX ring (uDV -> agent) — ASYNC ====================
+// Issue #166: the old TX was single-in-flight and BLOCKING — cubemx_transport_write
+// busy-waited up to WRITE_TIMEOUT_MS per frame and DROPPED the frame if a transfer
+// was already in flight (CDC_Transmit_HS -> USBD_BUSY). That stalled the one
+// micro-ROS thread on every publish, starving inbound servicing (the /dv/status
+// "cliff") and mangling the dense CREATE_SESSION burst (the handshake failure).
+//
+// Now: write() copies the frame into this SPSC ring and returns immediately (no
+// USB wait). The USB IN-complete ISR (CDC_TransmitCplt_HS) drains the ring one
+// contiguous chunk at a time. CDC_Transmit_HS only SetTxBuffer()s the pointer (no
+// copy), so the in-flight region [tx_tail, tx_tail+tx_inflight) must stay stable
+// until the transfer completes — the SPSC invariant (producer never overwrites
+// unread bytes) guarantees exactly that.
+static uint8_t           tx_ring[USB_TX_RING_SIZE];
+static volatile uint16_t tx_head = 0;      // producer (task) write index
+static volatile uint16_t tx_tail = 0;      // consumer (ISR) read index
+static volatile uint16_t tx_inflight = 0;  // bytes handed to the live transfer; 0 = TX idle
+// Count of TX frames dropped because the ring stayed full past WRITE_TIMEOUT_MS.
+volatile uint32_t g_tx_drop_count = 0;
+
 bool initialized = false;
 
-// Transmission completed callback
+// Brief all-IRQ critical section — guards the "is TX idle? start next chunk"
+// check-and-act against the USB IN-complete ISR. The region is a few register
+// writes (CDC_Transmit_HS), microseconds long.
+static inline uint32_t usb_lock(void)        { uint32_t p = __get_PRIMASK(); __disable_irq(); return p; }
+static inline void     usb_unlock(uint32_t p){ if (!p) __enable_irq(); }
+
+// Start the next TX chunk if the link is idle and data is queued. Callable from
+// the ISR directly, or from the task WITH usb_lock() held.
+static void tx_pump(void)
+{
+    if (tx_inflight != 0u) return;                 // a transfer is already running
+    uint16_t head = tx_head;
+    uint16_t tail = tx_tail;
+    if (head == tail) return;                      // ring empty
+    // Send only the contiguous run up to the ring end; the wrap remainder goes
+    // out on the next completion.
+    uint16_t contig = (head > tail) ? (uint16_t)(head - tail)
+                                    : (uint16_t)(USB_TX_RING_SIZE - tail);
+    tx_inflight = contig;
+    if (CDC_Transmit_HS(&tx_ring[tail], contig) != USBD_OK)
+    {
+        tx_inflight = 0u;                          // couldn't start; retry on next pump
+    }
+}
+
+// Transmission-complete callback (USB IN-complete ISR context).
 static int8_t CDC_TransmitCplt_HS(uint8_t *Buf, uint32_t *Len, uint8_t epnum)
 {
     (void) Buf;
     (void) Len;
     (void) epnum;
 
-    g_write_complete = true;
+    tx_tail = (uint16_t)((tx_tail + tx_inflight) & (USB_TX_RING_SIZE - 1u));
+    tx_inflight = 0u;
+    tx_pump();                                     // kick the next chunk (ISR ctx)
     return USBD_OK;
 }
 
@@ -72,10 +126,22 @@ static int8_t CDC_Control_HS(uint8_t cmd, uint8_t* pbuf, uint16_t length)
     return USBD_OK;
 }
 
-// Data received callback
+// Data received callback (USB OUT-complete ISR context)
 static int8_t CDC_Receive_HS(uint8_t* Buf, uint32_t *Len)
 {
 	USBD_CDC_SetRxBuffer(&hUsbDeviceHS, &Buf[0]);
+
+    // Overflow guard: if this packet would overrun the unread window it_head, DROP
+    // it (and count it) instead of silently overwriting/reordering unread bytes,
+    // which would desync the XRCE/HDLC parser for good. Re-arm RX regardless.
+    size_t used = (it_tail + USB_BUFFER_SIZE - it_head) % USB_BUFFER_SIZE;
+    size_t freeb = USB_BUFFER_SIZE - 1u - used;
+    if (*Len > freeb)
+    {
+        g_rx_overflow_count++;
+        USBD_CDC_ReceivePacket(&hUsbDeviceHS);
+        return USBD_OK;
+    }
 
     // Circular buffer
     if ((it_tail + *Len) > USB_BUFFER_SIZE)
@@ -109,6 +175,15 @@ bool cubemx_transport_open(struct uxrCustomTransport * transport){
         initialized = true;
     }
 
+    // Reset both rings on every (re)open so a reconnect starts from a clean parse
+    // state — leftover mid-frame bytes from a dropped session used to desync the
+    // next handshake (issue #166 reconnect wedge).
+    uint32_t p = usb_lock();
+    it_head = it_tail = 0;
+    tx_head = tx_tail = 0;
+    tx_inflight = 0u;
+    usb_unlock(p);
+
     return true;
 }
 
@@ -117,23 +192,35 @@ bool cubemx_transport_close(struct uxrCustomTransport * transport){
 }
 
 size_t cubemx_transport_write(struct uxrCustomTransport* transport, const uint8_t * buf, size_t len, uint8_t * err){
-	uint8_t ret = CDC_Transmit_HS((uint8_t *)buf, len);
 
-	if (USBD_OK != ret)
-	{
-		return 0;
-	}
+    if (len == 0u) return 0u;
+    // A single frame must fit in the ring (XRCE stream MTU << ring size); if not,
+    // it can never be enqueued — drop rather than spin forever.
+    if (len > (USB_TX_RING_SIZE - 1u)) { g_tx_drop_count++; return 0u; }
 
+    // All-or-nothing at the frame level (partial writes would corrupt XRCE framing):
+    // wait, bounded, until the whole frame fits, then enqueue it atomically.
     int64_t start = uxr_millis();
-    while(!g_write_complete && (uxr_millis() -  start) < WRITE_TIMEOUT_MS)
+    for (;;)
     {
-    	taskYIELD();
+        uint16_t used  = (uint16_t)((tx_head - tx_tail) & (USB_TX_RING_SIZE - 1u));
+        uint16_t freeb = (uint16_t)(USB_TX_RING_SIZE - 1u - used);
+        if (freeb >= len) break;
+
+        uint32_t p = usb_lock(); tx_pump(); usb_unlock(p);   // make sure the drain is running
+        if ((uxr_millis() - start) >= WRITE_TIMEOUT_MS) { g_tx_drop_count++; return 0u; }
+        taskYIELD();
     }
 
-    size_t writed = g_write_complete ? len : 0;
-    g_write_complete = false;
+    uint16_t head  = tx_head;
+    uint16_t first = (uint16_t)(((USB_TX_RING_SIZE - head) < len) ? (USB_TX_RING_SIZE - head) : len);
+    memcpy(&tx_ring[head], buf, first);
+    if (len > first) memcpy(&tx_ring[0], buf + first, len - first);
+    __DMB();                                                 // ring data visible before head advances
+    tx_head = (uint16_t)((head + len) & (USB_TX_RING_SIZE - 1u));
 
-	return writed;
+    uint32_t p = usb_lock(); tx_pump(); usb_unlock(p);       // start a transfer if idle
+    return len;
 }
 
 size_t cubemx_transport_read(struct uxrCustomTransport* transport, uint8_t* buf, size_t len, int timeout, uint8_t* err){
